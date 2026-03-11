@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SheetSQL — Query Excel with SQL</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Table Container - matches your .table-wrap style */
+.table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+/* Table Base */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Remove default border attribute styling */
+table[border] {
+  border: none;
+}
+
+/* Header Row */
+thead {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+th {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Data Cells */
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+/* Remove border from last row */
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Hover Effect - matches your existing tr:hover */
+tbody tr:hover {
+  background: rgba(67, 97, 194, 0.03);
+}
+
+/* Alternating row colors (optional, subtle) */
+tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+tbody tr:nth-child(even):hover {
+  background: rgba(67, 97, 194, 0.03);
+}
+
+.flash {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary-fg);
+  background: var(--primary);
+  opacity: 0;
+  transform: translateY(-10px);
+  animation: flash-slide 0.5s ease forwards, flash-fade 0.5s ease 2.5s forwards;
+  z-index: 999;
+  margin-bottom: 8px;
+}
+
+/* Variants */
+.flash-success { background: var(--success); color: #fff; }
+.flash-error { background: var(--danger); color: #fff; }
+.flash-info { background: var(--primary); color: #fff; }
+
+/* Slide down animation */
+@keyframes flash-slide {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Fade out after delay */
+@keyframes flash-fade {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+
+:root{
+--bg:#faf9f7;
+--fg:#1e2330;
+--card:#ffffff;
+--border:#e4e4e7;
+--muted:#71717a;
+--primary:#4361c2;
+--primary-fg:#ffffff;
+--danger:#e5484d;
+--danger-bg:rgba(229,72,77,0.06);
+--radius:10px;
+--shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+}
+
+body{
+font-family:'Inter',system-ui,sans-serif;
+background:var(--bg);
+color:var(--fg);
+line-height:1.5;
+}
+
+header{
+border-bottom:1px solid var(--border);
+background:rgba(255,255,255,0.6);
+backdrop-filter:blur(8px);
+position:sticky;
+top:0;
+z-index:10;
+}
+
+.header-inner{
+max-width:860px;
+margin:0 auto;
+padding:16px 24px;
+display:flex;
+align-items:center;
+gap:12px;
+}
+
+.logo{
+width:32px;
+height:32px;
+background:var(--primary);
+border-radius:8px;
+display:flex;
+align-items:center;
+justify-content:center;
+color:white;
+font-weight:700;
+font-size:14px;
+}
+
+.header-text h1{font-size:15px;font-weight:600;}
+.header-text p{font-size:12px;color:var(--muted);}
+
+main{
+max-width:860px;
+margin:0 auto;
+padding:32px 24px;
+display:flex;
+flex-direction:column;
+gap:32px;
+}
+
+/* Dropzone */
+.dropzone{
+border:2px dashed var(--border);
+border-radius:var(--radius);
+padding:40px;
+text-align:center;
+cursor:pointer;
+transition:border-color 0.2s;
+}
+
+.dropzone:hover{
+border-color:var(--primary);
+}
+
+.dropzone-icon{font-size:28px;margin-bottom:8px;}
+.dropzone-title{font-size:14px;font-weight:500;}
+.dropzone-sub{font-size:12px;color:var(--muted);margin-top:4px;}
+
+.file-info{
+background:var(--card);
+border:1px solid var(--border);
+border-radius:var(--radius);
+padding:12px 16px;
+margin-top:10px;
+display:none;
+}
+
+.file-info.active{
+display:block;
+}
+
+/* SQL Builder */
+.builder{
+background:var(--card);
+border:1px solid var(--border);
+border-radius:var(--radius);
+padding:20px;
+}
+
+.builder-header{
+display:flex;
+align-items:center;
+gap:8px;
+margin-bottom:16px;
+flex-wrap:wrap;
+}
+
+.statement-btn{
+font-family:'Inter',sans-serif;
+font-size:12px;
+border:1px solid var(--border);
+background:white;
+border-radius:6px;
+padding:8px 14px;
+cursor:pointer;
+transition:all 0.2s;
+font-weight:500;
+}
+
+.statement-btn:hover{
+border-color:var(--primary);
+color:var(--primary);
+}
+
+.statement-btn.active{
+background:var(--primary);
+color:white;
+border-color:var(--primary);
+}
+
+.clause{
+display:flex;
+align-items:center;
+gap:8px;
+margin-bottom:12px;
+padding:12px;
+background:rgba(0,0,0,0.02);
+border-radius:8px;
+flex-wrap:wrap;
+}
+
+.clause-label{
+font-size:11px;
+font-weight:600;
+color:var(--muted);
+text-transform:uppercase;
+letter-spacing:0.5px;
+min-width:80px;
+}
+
+.clause-input{
+flex:1;
+min-width:120px;
+padding:8px 12px;
+border:1px solid var(--border);
+border-radius:6px;
+font-size:13px;
+font-family:inherit;
+}
+
+.clause-input:focus{
+outline:none;
+border-color:var(--primary);
+}
+
+.clause-select{
+padding:8px 12px;
+border:1px solid var(--border);
+border-radius:6px;
+font-size:13px;
+font-family:inherit;
+background:white;
+min-width:140px;
+}
+
+.add-clause-btn, .add-column-btn{
+font-size:11px;
+color:var(--primary);
+background:transparent;
+border:none;
+cursor:pointer;
+padding:4px 8px;
+}
+
+
+.builder-actions{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-top:20px;
+padding-top:16px;
+border-top:1px solid var(--border);
+}
+
+button{
+font-family:'Inter',sans-serif;
+font-size:12px;
+border:none;
+border-radius:6px;
+padding:8px 16px;
+cursor:pointer;
+transition:opacity 0.2s;
+}
+
+button:hover{
+opacity:0.9;
+}
+
+.btn-primary{
+background:var(--primary);
+color:white;
+}
+
+.btn-ghost{
+background:transparent;
+color:var(--muted);
+}
+
+.btn-outline{
+border:1px solid var(--border);
+background:white;
+}
+
+/* Preview */
+.query-preview{
+background:#1e2330;
+color:#e4e4e7;
+border-radius:8px;
+padding:16px;
+margin-top:16px;
+font-family:'JetBrains Mono',monospace;
+font-size:12px;
+line-height:1.6;
+}
+
+/* Results */
+.results-placeholder{
+border:2px dashed var(--border);
+border-radius:var(--radius);
+padding:48px;
+text-align:center;
+font-size:13px;
+color:var(--muted);
+}
+
+.table-wrap{
+border:1px solid var(--border);
+border-radius:var(--radius);
+overflow:hidden;
+display:block;
+}
+
+.table-wrap.active{
+display:block;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+font-size:12px;
+}
+
+th,td{
+padding:10px 16px;
+border-bottom:1px solid var(--border);
+text-align:left;
+}
+
+thead{
+background:rgba(0,0,0,0.02);
+}
+
+th{
+font-weight:600;
+color:var(--muted);
+font-size:11px;
+text-transform:uppercase;
+letter-spacing:0.3px;
+}
+
+tr:hover{
+background:rgba(67,97,194,0.03);
+}
+
+/* Status */
+.status{
+display:flex;
+align-items:center;
+gap:8px;
+font-size:12px;
+color:var(--muted);
+}
+
+.status-dot{
+width:6px;
+height:6px;
+border-radius:50%;
+background:var(--muted);
+}
+
+.status-dot.ready{
+background:#22c55e;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="header-inner">
+<div class="logo">S</div>
+<div class="header-text">
+<h1>SheetSQL</h1>
+<p>Query Excel files with SQL</p>
+</div>
+</div>
+</header>
+{% with messages = get_flashed_messages(with_categories=True) %}
+{% if messages %}
+{% for category, message in messages %}
+{% if category == 'success' %}
+<div class="flash flash-success">{{ message }}</div>
+{% elif category == 'error' %}
+<div class="flash flash-error">{{ message }}</div>
+{% elif category == 'info' %}
+<div class="flash flash-info">{{ message }}</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endwith %}
+<form action="{{ url_for('home') }}" enctype="multipart/form-data" method="POST">
+
+  <!-- File Upload Section -->
+  <section>
+    <input type="file" id="fileInput" name="file" accept=".xlsx,.xls,.csv" style="display:none;">
+    <div class="dropzone" id="dropzone">
+      <div class="dropzone-icon">📄</div>
+      <div class="dropzone-title">Drop your Excel file here </div>
+      <div class="dropzone-sub">.xlsx</div>
+    </div>
+    <div class="file-info" id="fileInfo">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <button class="btn-outline" style="font-size:11px;padding:6px 12px;">Change file</button>
+      </div>
+    </div>
+    <button value="upload_btn" type="submit" name="button">Upload file</button>
+  </section>
+
+  <section id="sqlBuilder">
+    <div id="selectClauses">
+      <div class="clause" id="columnsContainer">
+        <span class="clause-label">SELECT</span>
+        <input type="text" class="clause-input" placeholder="column name or empty for all" name="columns[]">
+        <button class="add-column-btn" id="addColumnBtn" type="button">+ Add column</button>
+      </div>
+
+      <div class="clause">
+        <span class="clause-label">FROM</span>
+        <select class="clause-select" name="sheet">
+          <option value="" disabled selected>Choose sheet...</option>
+          {% for sheet in sheet_names %}
+            <option value="{{ sheet }}">{{ sheet }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="clause">
+        <span class="clause-label">WHERE</span>
+        <input type="text" class="clause-input" name="where_clause[]" placeholder="e.g. revenue > 1000" >
+        <button class="add-clause-btn" type="button">+ Add condition</button>
+      </div>
+
+      
+
+
+      <div class="clause">
+        <span class="clause-label">GROUP BY</span>
+        <input type="text" class="clause-input" placeholder="column name" name="group_by">
+      </div>
+
+      <div class="clause">
+        <span class="clause-label">ORDER BY</span>
+        <input type="text" class="clause-input" placeholder="column name" name="order_by">
+        <select class="clause-select" style="min-width:100px;" name="direction">
+          <option>ASC</option>
+          <option>DESC</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <button class="btn-ghost" type="submit" name="button" value="reset_btn">Reset</button>
+        <button class="btn-primary" type="submit" value="run_btn" name="button">▶ Run Query</button>
+      </div>
+
+    <div class="query-preview">
+      <span style="color:#6b7280;">-- Generated SQL</span><br>{% if query %}
+      {{ query }}{% else %} 
+      ---
+      {% endif %}
+    </div>
+    <!-- <div class="builder-actions">
+      <div class="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Upload a file to start</span>
+      </div> </div>-->
+      {% if excel_rows or excel_cols %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        {% for col in excel_cols %}
+          <th>{{ col }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in excel_rows %}
+        <tr>
+          {% for cell in row %}
+            <td>{{ cell }}</td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+      
+
+  </section>
+
+</form>
+
+</main>
+<script>
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+// Click dropzone to open file selector
+dropzone.addEventListener("click", () => {
+  fileInput.click();
+});
+
+// Update dropzone when file is selected
+fileInput.addEventListener("change", () => {
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+
+    // Change border to green
+    dropzone.style.borderColor = "#22c55e"; // green
+
+    // Update dropzone title with file name
+    const title = dropzone.querySelector(".dropzone-title");
+    title.textContent = file.name;
+  } else {
+    // Reset if no file
+    dropzone.style.borderColor = ""; // back to default
+    const title = dropzone.querySelector(".dropzone-title");
+    title.textContent = "Drop your Excel file here";
+  }
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const addClauseBtn = document.querySelector(".add-clause-btn");
+  const whereClause = addClauseBtn.parentElement;
+
+  addClauseBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    // wrapper for the condition row
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "8px";
+    wrapper.style.marginTop = "6px";
+
+    // operator dropdown
+    const operator = document.createElement("select");
+    operator.className = "clause-select";
+    operator.name = "operator[]";
+
+    operator.innerHTML = `
+      <option value="AND" name="operator[]">AND</option>
+      <option value="OR" name="operator[]">OR</option>
+
+    `;
+
+    // condition input
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "clause-input";
+    input.name = "where_clause[]";
+    input.placeholder = "e.g. revenue > 1000";
+
+    // remove button
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "✕";
+    removeBtn.style.cursor = "pointer";
+
+    removeBtn.addEventListener("click", () => {
+      wrapper.remove();
+    });
+
+    // assemble
+    wrapper.appendChild(operator);
+    wrapper.appendChild(input);
+    wrapper.appendChild(removeBtn);
+
+    // insert before the "+ Add condition" button
+    whereClause.insertBefore(wrapper, addClauseBtn);
+  });
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const addColumnBtn = document.getElementById("addColumnBtn");
+  const columnsContainer = document.getElementById("columnsContainer");
+
+  const originalInput = columnsContainer.querySelector("input[name='columns[]']");
+
+  addColumnBtn.addEventListener("click", () => {
+    const newInput = originalInput.cloneNode(true);
+    newInput.value = "";
+
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "6px";
+    wrapper.style.marginTop = "4px";
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "✕";
+
+    removeBtn.addEventListener("click", () => wrapper.remove());
+
+    wrapper.appendChild(newInput);
+    wrapper.appendChild(removeBtn);
+
+    columnsContainer.insertBefore(wrapper, addColumnBtn);
+  });
+});
+</script>
+</body>
+</html>

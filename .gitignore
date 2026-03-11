@@ -1,0 +1,35 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Flask instance folder (if you have one for configs)
+instance/
+
+# Environment variables / secret keys
+*.env
+*.ini
+
+# PyCharm / VSCode / IDE settings
+.vscode/
+.idea/
+
+# Mac / Linux / Windows system files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs
+*.log
+
+
+uploads/
+*.xlsx
+*.xls
+*.csv
